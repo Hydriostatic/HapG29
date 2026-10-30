@@ -1,6 +1,5 @@
 # Compila o g29haptic.exe na nuvem do GitHub (Windows + Visual Studio).
-# Depois de enviar o projeto para um repositório, o .exe aparece em
-# Actions -> última execução -> Artifacts -> g29haptic.
+# O .exe aparece em Actions -> última execução -> Artifacts -> g29haptic.
 name: build
 
 on:
@@ -13,16 +12,25 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Configurar
-        run: cmake -S . -B build -A x64   # usa o Visual Studio instalado na máquina
-
-      - name: Compilar
-        run: cmake --build build --config Release
-
-      - name: Testes de segurança
-        run: ctest --test-dir build -C Release --output-on-failure
+      - name: Configurar, compilar e testar
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Continue'
+          $log = "build-log.txt"
+          cmake -S . -B build -A x64 *>&1 | Tee-Object -FilePath $log
+          if ($LASTEXITCODE -eq 0) { cmake --build build --config Release *>&1 | Tee-Object -FilePath $log -Append }
+          if ($LASTEXITCODE -eq 0) { ctest --test-dir build -C Release --output-on-failure *>&1 | Tee-Object -FilePath $log -Append }
+          $rc = $LASTEXITCODE
+          if ($rc -ne 0) {
+            # Publica as linhas de erro como anotações (visíveis sem baixar o log).
+            $lines = Get-Content $log | Select-String -Pattern 'error|CMake Error|FAILED|FAIL ' | Select-Object -First 25
+            if (-not $lines) { $lines = Get-Content $log | Select-Object -Last 25 }
+            foreach ($l in $lines) { Write-Output ("::error::" + ($l.ToString() -replace '%','%25')) }
+          }
+          exit $rc
 
       - uses: actions/upload-artifact@v4
+        if: success()
         with:
           name: g29haptic
           path: |
