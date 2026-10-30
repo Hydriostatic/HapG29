@@ -279,8 +279,8 @@ int cmdBridge(FfbDevice& dev, const SafetyConfig& cfg) {
 
     Source src = [&](double, double& low, double& high) {
         const RumbleState s = bridge.snapshot();
-        low = shape(s.large / 255.0);
-        high = shape(s.small / 255.0) * 0.6;
+        low = shape(s.largeMotor / 255.0);
+        high = shape(s.smallMotor / 255.0) * 0.6;
         return true;
     };
 
@@ -292,9 +292,9 @@ int cmdBridge(FfbDevice& dev, const SafetyConfig& cfg) {
         else if (held)
             note = "vibração parada há muito tempo: cortada por segurança";
         else
-            note = (s.large || s.small) ? "vibrando" : "ok";
+            note = (s.largeMotor || s.smallMotor) ? "vibrando" : "ok";
         std::printf("\rRumble jogo: grave %3u agudo %3u | G29: %4.1f%% %4.1f%% | média %4.1f%% | eventos %llu | %-60s",
-                    s.large, s.small, outLow * 100.0, outHigh * 100.0, dutyAvg * 100.0,
+                    s.largeMotor, s.smallMotor, outLow * 100.0, outHigh * 100.0, dutyAvg * 100.0,
                     static_cast<unsigned long long>(s.events), note);
         std::fflush(stdout);
     };

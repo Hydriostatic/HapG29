@@ -17,8 +17,8 @@
 namespace haptics {
 
 struct RumbleState {
-    uint8_t large = 0;     // motor grave (0-255)
-    uint8_t small = 0;     // motor agudo (0-255)
+    uint8_t largeMotor = 0; // motor grave (0-255)
+    uint8_t smallMotor = 0; // motor agudo (0-255)
     uint64_t events = 0;   // quantas notificações chegaram desde o início
     double lastEventAt = -1.0; // segundos (relógio do programa); -1 = nunca
 };

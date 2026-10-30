@@ -66,8 +66,8 @@ VOID CALLBACK RumbleBridge::onNotification(PVIGEM_CLIENT, PVIGEM_TARGET,
 RumbleState RumbleBridge::snapshot() const {
     RumbleState s;
     const uint32_t m = motors_.load(std::memory_order_relaxed);
-    s.large = static_cast<uint8_t>((m >> 8) & 0xFF);
-    s.small = static_cast<uint8_t>(m & 0xFF);
+    s.largeMotor = static_cast<uint8_t>((m >> 8) & 0xFF);
+    s.smallMotor = static_cast<uint8_t>(m & 0xFF);
     s.events = events_.load(std::memory_order_relaxed);
     s.lastEventAt = lastEventAt_.load(std::memory_order_relaxed);
     return s;
