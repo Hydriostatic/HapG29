@@ -305,16 +305,12 @@ int cmdBridge(FfbDevice& dev, const SafetyConfig& cfg) {
     return rc;
 }
 
-} // namespace
-
-int main(int argc, char** argv) {
-    SetConsoleOutputCP(CP_UTF8);
-    Options o;
-    if (!parseArgs(argc, argv, o)) { printUsage(); return 2; }
+int runCommand(const Options& o) {
     if (o.command == "list") return cmdList();
     if (o.command != "test" && o.command != "bridge") { printUsage(); return 2; }
 
-    SetConsoleCtrlHandler(consoleHandler, TRUE);
+    g_stopRequested = false;
+    g_mainLoopDone = false;
     HWND hwnd = createHiddenWindow();
     if (!hwnd) { std::printf("[erro] não foi possível criar a janela interna.\n"); return 1; }
     if (!RegisterHotKey(hwnd, kHotkeyId, MOD_CONTROL | MOD_ALT | MOD_NOREPEAT, VK_END))
@@ -337,5 +333,79 @@ int main(int argc, char** argv) {
     g_mainLoopDone = true;
     UnregisterHotKey(hwnd, kHotkeyId);
     DestroyWindow(hwnd);
+    return rc;
+}
+
+// True quando o programa foi aberto com duplo clique (a janela do console
+// pertence só a ele e fecharia sozinha ao terminar).
+bool ownsConsole() {
+    DWORD ids[2];
+    return GetConsoleProcessList(ids, 2) <= 1;
+}
+
+std::string readLine() {
+    char buf[128] = {};
+    if (!std::fgets(buf, sizeof(buf), stdin)) return {};
+    std::string s(buf);
+    while (!s.empty() && (s.back() == '\n' || s.back() == '\r' || s.back() == ' ')) s.pop_back();
+    return s;
+}
+
+double askGain(double def) {
+    std::printf("Intensidade em %% (1-%.0f) [Enter = %.0f]: ", kHardCeiling * 100, def);
+    std::string s = readLine();
+    double v = s.empty() ? def : std::atof(s.c_str());
+    if (v < 1.0) v = 1.0;
+    if (v > kHardCeiling * 100) v = kHardCeiling * 100;
+    return v;
+}
+
+// Menu para quem abre o .exe com duplo clique.
+void interactiveMenu() {
+    for (;;) {
+        std::printf(
+            "\n===== G29 Desk Haptics =====\n"
+            "  1) Listar dispositivos (ver se o G29 aparece)\n"
+            "  2) Testar o motor (mãos fora do volante)\n"
+            "  3) Testar o motor em segundo plano (5 s para trocar de janela)\n"
+            "  4) Iniciar a ponte de rumble (deixe aberto e abra o jogo)\n"
+            "  0) Sair\n"
+            "Escolha: ");
+        std::string c = readLine();
+        Options o;
+        if (c == "0" || (c.empty() && std::feof(stdin))) return;
+        if (c == "1") o.command = "list";
+        else if (c == "2") { o.command = "test"; o.gainPercent = askGain(10); }
+        else if (c == "3") { o.command = "test"; o.gainPercent = askGain(10); o.delay = 5; }
+        else if (c == "4") {
+            o.command = "bridge"; o.gainPercent = askGain(15);
+            std::printf("Parar: Ctrl+C (volta ao menu) | Emergência: Ctrl+Alt+End\n");
+        }
+        else continue;
+        std::printf("\n");
+        runCommand(o);
+    }
+}
+
+} // namespace
+
+int main(int argc, char** argv) {
+    SetConsoleOutputCP(CP_UTF8);
+    SetConsoleCtrlHandler(consoleHandler, TRUE);
+
+    if (argc < 2 && ownsConsole()) {
+        interactiveMenu();
+        return 0;
+    }
+
+    Options o;
+    int rc;
+    if (!parseArgs(argc, argv, o)) { printUsage(); rc = 2; }
+    else rc = runCommand(o);
+
+    if (ownsConsole()) {
+        std::printf("\nPressione Enter para fechar...");
+        readLine();
+    }
     return rc;
 }
