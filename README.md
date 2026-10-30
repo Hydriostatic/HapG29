@@ -33,6 +33,8 @@ O executável fica em `build\Release\g29haptic.exe`. O ViGEmClient é baixado so
 
 ## 3. Procedimento de teste seguro (faça nesta ordem)
 
+> **Jeito fácil:** dê duplo clique no `g29haptic.exe`. Abre um menu com as opções abaixo (listar, testar, testar em segundo plano, iniciar a ponte). Os comandos a seguir são a forma equivalente pelo terminal.
+
 1. **Volante livre:** mãos fora do aro, nada encostado nele.
 2. **Ver se o G29 aparece:**
    ```
