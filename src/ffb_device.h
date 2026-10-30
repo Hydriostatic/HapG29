@@ -47,6 +47,13 @@ public:
     // Tenta recuperar o dispositivo após perda (desconexão, outro app).
     bool tryRecover();
 
+    // Texto com o estado real do FFB lido do driver (para diagnóstico).
+    std::wstring diagnostics() const;
+
+    // Toca um seno avulso por 'ms' milissegundos (bloqueante). Usado no
+    // teste de movimento visível, em frequência baixa.
+    bool playTemporarySine(double hz, double level, DWORD ms, std::wstring& err);
+
     // Para tudo imediatamente (parada de emergência).
     void stopAll();
     void close();

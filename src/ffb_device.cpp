@@ -116,14 +116,17 @@ bool FfbDevice::open(HWND window, int index, std::wstring& err) {
     hr = dev_->Acquire();
     if (FAILED(hr)) { err = L"Acquire falhou: " + hrToString(hr); close(); return false; }
 
-    // Estado conhecido: nenhum efeito tocando.
+    // Estado conhecido: nenhum efeito tocando, motores ligados.
     dev_->SendForceFeedbackCommand(DISFFC_RESET);
+    dev_->SendForceFeedbackCommand(DISFFC_SETACTUATORSON);
     return true;
 }
 
 bool FfbDevice::createSine(double hz, IDirectInputEffect** out, std::wstring& err) {
     DWORD axes[1] = { DIJOFS_X };
-    LONG direction[1] = { 0 };
+    // Em coordenadas cartesianas a direção é um vetor: com um eixo só, ele
+    // precisa ser diferente de zero, senão o driver aplica força nula.
+    LONG direction[1] = { 1 };
     DIPERIODIC periodic{};
     periodic.dwMagnitude = 0;
     periodic.lOffset = 0;      // média zero: o aro oscila, nunca gira para um lado
@@ -212,6 +215,44 @@ bool FfbDevice::tryRecover() {
     lastLow_ = lastHigh_ = -1.0;
     setLevels(0.0, 0.0);
     return true;
+}
+
+std::wstring FfbDevice::diagnostics() const {
+    if (!dev_) return L"dispositivo não aberto";
+    std::wstring out;
+    DWORD state = 0;
+    if (SUCCEEDED(dev_->GetForceFeedbackState(&state))) {
+        out += (state & DIGFFS_ACTUATORSON) ? L"motores LIGADOS" : L"motores DESLIGADOS";
+        if (state & DIGFFS_STOPPED) out += L", estado PARADO";
+        if (state & DIGFFS_PAUSED) out += L", estado PAUSADO";
+        if (state & DIGFFS_POWEROFF) out += L", SEM ENERGIA (fonte desligada?)";
+        if (state & DIGFFS_SAFETYSWITCHOFF) out += L", chave de segurança desligada";
+        if (state & DIGFFS_DEVICELOST) out += L", dispositivo perdido";
+    } else {
+        out += L"estado FFB indisponível";
+    }
+    auto effectState = [](IDirectInputEffect* e) -> std::wstring {
+        if (!e) return L"não criado";
+        DWORD st = 0;
+        HRESULT hr = e->GetEffectStatus(&st);
+        if (FAILED(hr)) return L"erro " + hrToString(hr);
+        return (st & DIEGES_PLAYING) ? L"tocando" : L"PARADO";
+    };
+    out += L" | efeito grave: " + effectState(low_) + L" | efeito agudo: " + effectState(high_);
+    return out;
+}
+
+bool FfbDevice::playTemporarySine(double hz, double level, DWORD ms, std::wstring& err) {
+    IDirectInputEffect* e = nullptr;
+    if (!createSine(hz, &e, err)) return false;
+    const bool ok = setMagnitude(e, hz, level);
+    if (!ok) err = L"SetParameters falhou no efeito temporário";
+    Sleep(ms);
+    setMagnitude(e, hz, 0.0);
+    e->Stop();
+    e->Unload();
+    e->Release();
+    return ok;
 }
 
 void FfbDevice::stopAll() {

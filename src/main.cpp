@@ -233,6 +233,19 @@ int cmdTest(FfbDevice& dev, const Options& o, const SafetyConfig& cfg) {
     }
     std::printf("\n");
 
+    std::printf("Diagnóstico do driver: %s\n", toUtf8(dev.diagnostics()).c_str());
+
+    // Etapa 0: movimento lento e VISÍVEL (2 Hz, no máximo 10%%). Confirma que
+    // o motor recebe força, independentemente de dar para sentir na mesa.
+    {
+        const double visible = std::fmin(o.gainPercent / 100.0, 0.10);
+        std::printf("-> Movimento visível: o aro deve balançar devagar por 2 s (%.0f%%)\n", visible * 100);
+        std::wstring err;
+        if (!dev.playTemporarySine(2.0, visible, 2000, err))
+            std::printf("   [erro] %s\n", toUtf8(err).c_str());
+        Sleep(700);
+    }
+
     struct Stage { double begin, end; const char* name; };
     static const Stage stages[] = {
         {0.0, 0.3, "Pulso curto grave (300 ms)"},
@@ -248,6 +261,11 @@ int cmdTest(FfbDevice& dev, const Options& o, const SafetyConfig& cfg) {
                 announced = i;
                 std::printf("-> %s\n", stages[i].name);
             }
+        static bool diagShown = false;
+        if (!diagShown && t > 0.15) {
+            diagShown = true;
+            std::printf("   estado durante o pulso: %s\n", toUtf8(dev.diagnostics()).c_str());
+        }
         low = high = 0.0;
         if (t < 0.3) low = 1.0;
         else if (t >= 1.3 && t < 1.6) high = 1.0;
@@ -259,7 +277,9 @@ int cmdTest(FfbDevice& dev, const Options& o, const SafetyConfig& cfg) {
         return t < 7.5;
     };
     int rc = runLoop(dev, cfg, src, nullptr);
-    std::printf("Teste concluído. Sentiu na mesa? Se quase nada, repita com --gain 15, depois 20 (máx. %.0f).\n",
+    std::printf("Teste concluído.\n"
+                " - O aro balançou na etapa visível mas a mesa quase não tremeu? Suba a intensidade: 20, depois 30 (máx. %.0f).\n"
+                " - O aro NÃO balançou? Me mande as linhas de 'Diagnóstico' e 'estado durante o pulso'.\n",
                 kHardCeiling * 100);
     return rc;
 }
