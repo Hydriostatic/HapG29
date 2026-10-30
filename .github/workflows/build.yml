@@ -1,0 +1,30 @@
+# Compila o g29haptic.exe na nuvem do GitHub (Windows + Visual Studio).
+# Depois de enviar o projeto para um repositório, o .exe aparece em
+# Actions -> última execução -> Artifacts -> g29haptic.
+name: build
+
+on:
+  push:
+  workflow_dispatch:
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Configurar
+        run: cmake -S . -B build -A x64   # usa o Visual Studio instalado na máquina
+
+      - name: Compilar
+        run: cmake --build build --config Release
+
+      - name: Testes de segurança
+        run: ctest --test-dir build -C Release --output-on-failure
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: g29haptic
+          path: |
+            build/Release/g29haptic.exe
+            README.md
